@@ -24,7 +24,7 @@ ui <- page_sidebar(
   layout_columns(
     fill = FALSE,
     value_box(
-      title = "Price",
+      title = "Previous Close",
       value = textOutput("price"),
       showcase = bsicons::bs_icon("cash")
     ),
@@ -56,7 +56,7 @@ server <- function(input, output) {
   
   # Note: current_data must be called with parenthesis as it is a function
   output$price <- renderText({
-    format(current_data()[["Open"]], big.mark = ",")
+    format(current_data()[["Close"]], big.mark = ",")
     })
   output$volume <- renderText({
     format(current_data()[["Volume"]], big.mark = ",")
