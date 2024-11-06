@@ -1,6 +1,12 @@
 # This is the main app file which contains UI and Server elements
-library(renv)
-renv::restore()
+library(plotly)
+library(shiny)
+library(bslib)
+library(bsicons)
+library(dplyr)
+library(zoo)
+library(quantmod)
+
 source("scripts.R") # this calls essential functions from scripts.R file
 
 # Variables
