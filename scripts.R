@@ -2,17 +2,17 @@
 
 # Functions
 
-getStockPrice <- function(stock="AAPL", dateRange = c(Sys.Date()-1825, Sys.Date()), 
+getStockPrice <- function(ticker="AAPL", dateRange = c(Sys.Date()-1825, Sys.Date()), 
                           calculateReturns = FALSE) {
   # gets stock price and tidies into dplyr tibble
-  stock_price <- getSymbols(stock, auto.assign = FALSE) %>%
+  stock_price <- getSymbols(ticker, auto.assign = FALSE) %>%
     fortify.zoo() %>% # makes index its own column so it is recognised by tibble 
     tibble() %>%
     dplyr::rename("Date" := Index) %>% 
     dplyr::filter(between(Date, as.Date(dateRange[1]), as.Date(dateRange[2])))
   
   # removes ticker name from column names
-  colnames(stock_price) <- gsub(paste0(stock,"."), "", colnames(stock_price))
+  colnames(stock_price) <- gsub(paste0(ticker,"."), "", colnames(stock_price))
   
   if (calculateReturns) {
     stock_price <- stock_price %>%

@@ -6,16 +6,29 @@ library(bsicons)
 library(dplyr)
 library(zoo)
 library(quantmod)
+library(jsonlite)
+library(tidyr)
+library(stringr)
 
 source("scripts.R") # this calls essential functions from scripts.R file
 
 # Variables
 stock_list = c("AAPL", "NVDA", "MSFT", "META", "AMZN", "GOOGL", "TSLA", "TSM", "COST")
 
+company_tickers <- fromJSON("company_tickers.json") %>% tibble() %>% unnest(cols = ".") %>%
+  dplyr::mutate(index = rep(1:3, length.out = length(.))) %>%
+  dplyr::group_by(index) %>%
+  dplyr::mutate(row = row_number()) %>%
+  tidyr::pivot_wider(names_from = "index", values_from = ".") %>%
+  dplyr::select("Ticker" = `2`, "Company" = `3`) %>%
+  dplyr::mutate("Ticker" = as.character(Ticker), "Company" = as.character(Company)) %>%
+  dplyr::mutate("Company" = stringr::str_to_title(`Company`)) %>%
+  dplyr::mutate("Company + Ticker" = paste0(Company, " (", Ticker, ")"))
+
 # Modules
-stock_picker <- selectInput(
-  "stock_picker", "Choose ticker:",
-  stock_list, selected = "AAPL"
+stock_picker <- selectizeInput(
+  # choices are defined in server element for better performance
+  "stock_picker", "Choose ticker:", choices = NULL 
 )
 
 ui <- page_sidebar(
@@ -44,15 +57,25 @@ ui <- page_sidebar(
   )
 )
 
-server <- function(input, output) {
+server <- function(input, output, session) {
   
-  stock_data <- reactive({getStockPrice(input$stock_picker)})
+  updateSelectizeInput(session, 'stock_picker', choices = company_tickers[["Company + Ticker"]], server = TRUE)
+  
+  stock_data <- reactive({
+    req(input$stock_picker != "") # req() only renders plots once ticker selected
+    # filter finds the corresponding ticker for the stock name and 'pipes' this into stock price function
+    filter(company_tickers, `Company + Ticker` == !!input$stock_picker)[["Ticker"]] %>%
+      getStockPrice()
+    })
   
   output$main_plot <- renderPlotly({
     plot_ly(stock_data(), type="scatter", mode="lines", x=~Date, y=~Close)
   })
   
-  current_data <- reactive({tail(stock_data(), 1)})
+  current_data <- reactive({
+    req(input$stock_picker != "")
+    tail(stock_data(), 1)
+    })
   
   # Note: current_data must be called with parenthesis as it is a function
   output$price <- renderText({
