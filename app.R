@@ -42,7 +42,7 @@ date_range_input <- dateRangeInput(inputId = "date",
                                    weekstart = 1)
 
 coin_picker <- selectizeInput(
-  "coin_picker", label = NULL, choices = NULL, selected = "BTCUSDT"
+  "coin_picker", label = NULL, choices = NULL, selected = "ETH"
 )
 
 # UI ----
@@ -86,12 +86,12 @@ ui <- page_navbar(
           title = "Volume",
           value = textOutput("volume"),
           showcase = bsicons::bs_icon("bar-chart")
-        ),
-        value_box(
-          title = "Market Cap",
-          value = textOutput("market_cap"),
-          showcase = bsicons::bs_icon("bank")
-        )
+        )#,
+        # value_box(
+        #   title = "Market Cap",
+        #   value = textOutput("market_cap"),
+        #   showcase = bsicons::bs_icon("bank")
+        # )
       ),
       layout_columns(
         plotlyOutput("main_plot") %>%
@@ -106,12 +106,17 @@ ui <- page_navbar(
                 title = "Price (USDT)",
                 value = textOutput("coin_price"),
                 showcase = bsicons::bs_icon("coin")
-              ),
-              value_box(
-                title = "Long-Short Ratio",
-                value = textOutput("ls_ratio"),
-                showcase = bsicons::bs_icon("arrows-collapse-vertical")
-              )
+              )#,
+              # value_box(
+              #   title = "Volume (USDT)",
+              #   value = textOutput("coin_volume"),
+              #   showcase = bsicons::bs_icon("bar-chart")
+              #   )#,
+              # value_box(
+              #   title = "Long-Short Ratio",
+              #   value = textOutput("ls_ratio"),
+              #   showcase = bsicons::bs_icon("arrows-collapse-vertical")
+              # )
             ),
             layout_columns(
               plotlyOutput("crypto_plot") %>%
@@ -216,11 +221,11 @@ server <- function(input, output, session) {
       getCoinPrice(dateRange=input$date)
   })
   
-  coin_price_ratio <- reactive({
-    # filter finds the corresponding ticker for the coin name and 'pipes' this into coin price function
-    filter(coin_df, `Coin` == !!input$coin_picker)[["Ticker"]] %>%
-      getCoinPrice(dateRange=input$date, coin_data_type = "lsratio")
-  })
+  # coin_price_ratio <- reactive({
+  #   # filter finds the corresponding ticker for the coin name and 'pipes' this into coin price function
+  #   filter(coin_df, `Coin` == !!input$coin_picker)[["Ticker"]] %>%
+  #     getCoinPrice(dateRange=input$date, coin_data_type = "lsratio")
+  # })
 
   output$crypto_plot <- renderPlotly({
     plot_ly(coin_price(), type="scatter", mode="lines", x=~Date, y=~Close)
@@ -229,6 +234,10 @@ server <- function(input, output, session) {
   output$coin_price <- renderText({
     tail(coin_price(), 1)[["Close"]]
   })
+  
+  # output$coin_volume <- renderText({
+  #   tail(coin_price(), 1)[["Volume"]]
+  # })
   
   output$ls_ratio <- renderText({
     tail(coin_price_ratio(), 1)[["Ls_ratio"]]

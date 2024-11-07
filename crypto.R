@@ -2,24 +2,26 @@
 
 # Variables
 # Filters for only tickers which show exchange between a coin and USDT
-coin_list <- cryptoQuotes::available_tickers() %>%
-  .[grep("USDT", .)]
+coin_list <- cryptoQuotes::available_tickers(source = "kraken") %>%
+  .[grep("USD", .)] 
 
-coin_list_names <- gsub("USDT", "", coin_list)
+coin_list_names <- gsub("PF_", "", coin_list) 
+coin_list_names <- gsub("USD", "", coin_list_names)
 
 coin_df <- tibble("Ticker" = coin_list, "Coin" = coin_list_names)
 
 # Functions
 
-getCoinPrice <- function(ticker="BTCUSDT", dateRange = c(Sys.Date()-years(1), Sys.Date()), 
-                           interval="1d", coin_data_type = "price",
-                           calculateReturns = FALSE) {
+getCoinPrice <- function(ticker="PF_ETHUSD", dateRange = c(Sys.Date()-years(1), Sys.Date()),
+                         interval="1d", coin_data_type = "price",
+                         source = "kraken",
+                         calculateReturns = FALSE) {
   # searches for crypto price data 
   # tryCatch(
     if (coin_data_type == "lsratio") {
-      coin_data <- cryptoQuotes::get_lsratio(ticker, interval=interval)
+      coin_data <- cryptoQuotes::get_lsratio(ticker, interval=interval, source=source)
     } else {
-      coin_data <- cryptoQuotes::get_quote(ticker, interval=interval,
+      coin_data <- cryptoQuotes::get_quote(ticker, interval=interval, source=source,
                                            from=dateRange[[1]], to=dateRange[[2]])
     }#,
   #   error = function(e) { stop(paste0("Ticker not found")) }
