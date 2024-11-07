@@ -4,8 +4,13 @@
 
 getStockPrice <- function(ticker="AAPL", dateRange = c(Sys.Date()-1825, Sys.Date()), 
                           calculateReturns = FALSE) {
-  # gets stock price and tidies into dplyr tibble
-  stock_price <- getSymbols(ticker, auto.assign = FALSE) %>%
+  # searches for stock price data 
+  tryCatch(
+    stock_price <- getSymbols(ticker, auto.assign = FALSE),
+    error = function(e) { stop(paste0("No symbol found")) }
+  )
+  # tidies stock price data 
+  stock_price <- stock_price %>%
     fortify.zoo() %>% # makes index its own column so it is recognised by tibble 
     tibble() %>%
     dplyr::rename("Date" := Index) %>% 
