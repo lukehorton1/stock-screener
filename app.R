@@ -48,6 +48,7 @@ coin_picker <- selectizeInput(
 # UI ----
 ui <- page_navbar(
   title = "Stock Screener",
+  theme = bs_theme(),
   id = "nav",
   sidebar = sidebar(width = 290,
                     bg = "white",

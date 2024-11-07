@@ -3,7 +3,7 @@
 # Variables
 # Filters for only tickers which show exchange between a coin and USDT
 coin_list <- cryptoQuotes::available_tickers() %>%
-  .[grep("USDT", coin_list)]
+  .[grep("USDT", .)]
 
 coin_list_names <- gsub("USDT", "", coin_list)
 
