@@ -12,6 +12,7 @@ library(jsonlite)
 library(tidyr)
 library(stringr)
 library(shinycssloaders)
+library(lubridate)
 
 source("scripts.R") # this calls essential functions from scripts.R file
 
@@ -31,31 +32,40 @@ company_tickers <- fromJSON("company_tickers.json") %>% tibble() %>% unnest(cols
 # Modules ----
 stock_picker <- selectizeInput(
   # choices are defined in server element for better performance
-  "stock_picker", "Choose ticker:", choices = NULL 
+  "stock_picker", label = NULL, choices = NULL 
 )
 
 stock_search <- textInput( 
-  "stock_search", 
-  "Search ticker:", 
+  "stock_search",
+  label = NULL,
   placeholder = "Enter text..."
 )
 
 search_button <- actionButton("search_button", "Search")
 
+date_range_input <- dateRangeInput(inputId = "date",
+                                   label = h2("Date Range:"),
+                                   start = Sys.Date() - years(2),
+                                   end = Sys.Date(),
+                                   min = "2007-01-01",
+                                   max = Sys.Date(),
+                                   format = "dd-M-yyyy")
+
 # UI ----
 ui <- page_sidebar(
   title = "Stock Screener",
-  sidebar = sidebar(
+  sidebar = sidebar(width = 290,
     bg = "white",
+    date_range_input,
     accordion(id = "main_accordion",
               multiple = FALSE,
       accordion_panel(value = "standard",
-        "Standard options",
+        "Choose ticker:",
         stock_picker,
         open = TRUE
       ),
       accordion_panel(value = "advanced",
-        "Advanced options",
+        "Search ticker",
         stock_search,
         search_button,
         open = FALSE
@@ -100,10 +110,10 @@ server <- function(input, output, session) {
       req(input$stock_picker != "") # req() only renders plots once ticker selected
       # filter finds the corresponding ticker for the stock name and 'pipes' this into stock price function
       filter(company_tickers, `Company + Ticker` == !!input$stock_picker)[["Ticker"]] %>%
-        getStockPrice() 
+        getStockPrice(dateRange = input$date) 
     } else if (input$main_accordion == "advanced") {
       req(input$stock_search != "")
-      getStockPrice(toupper(input$stock_search))
+      getStockPrice(toupper(input$stock_search), dateRange = input$date)
     }
   })
   
@@ -172,7 +182,6 @@ server <- function(input, output, session) {
   output$market_cap <- renderText({
     which_box()[3]
   })
-  
 }
 
 shinyApp(ui, server)

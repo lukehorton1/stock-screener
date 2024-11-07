@@ -2,7 +2,7 @@
 
 # Functions
 
-getStockPrice <- function(ticker="AAPL", dateRange = c(Sys.Date()-1825, Sys.Date()), 
+getStockPrice <- function(ticker="AAPL", dateRange = c(Sys.Date()-years(2), Sys.Date()), 
                           calculateReturns = FALSE) {
   # searches for stock price data 
   tryCatch(
