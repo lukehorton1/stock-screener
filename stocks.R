@@ -32,21 +32,51 @@ getStockPrice <- function(ticker="AAPL", dateRange = c(Sys.Date()-years(2), Sys.
   # removes ticker name from column names
   colnames(stock_price) <- gsub(paste0(ticker,"."), "", colnames(stock_price))
   
-  if (calculateReturns) {
-    stock_price <- stock_price %>%
-      dplyr::select(Date, Close) %>%
-      # change measures % change in stock price each day/week/month
-      dplyr::mutate(Change = (Close / lag(Close) - 1) * 100) %>%
-      # cumulative change measures % change in stock price since data begins
-      dplyr::mutate(Cumulative = (Close / first(Close) - 1) * 100)
-  }
+  # Calculates daily and cumulative returns
+  stock_price <- stock_price %>%
+    # change measures % change in stock price each day/week/month
+    dplyr::mutate(Change = (Close / lag(Close) - 1) * 100) %>%
+    # cumulative change measures % change in stock price since data begins
+    dplyr::mutate(Cumulative = (Close / first(Close) - 1) * 100)
+    
   return(stock_price)
+}
+
+getStockSummary <- function(df=getStockPrice()) {
+  summary <- tibble(
+    `Open` = as.character(round(df[[nrow(df), "Open"]], 2)),
+    `High` = as.character(round(df[[nrow(df), "High"]], 2)),
+    `Low` = as.character(round(df[[nrow(df), "Low"]], 2)),
+   ) 
+  if (nrow(df) > 5) {
+    summary <- dplyr::mutate(summary, 
+          `1-Week Range` = paste0(round(min(tail(df[["Low"]], 5)), 2), " - ",
+                                  round(max(tail(df[["High"]], 5)), 2)))
+  }
+  if (nrow(df) > 251) {
+    summary <- dplyr::mutate(summary, 
+          `52-Week Range` = paste0(round(min(tail(df[["Low"]], 251)), 2), " - ",
+                                   round(max(tail(df[["High"]], 251)), 2)))
+  }
+  summary <- pivot_longer(summary, everything(), names_to = "Category", values_to = "Value") %>%
+    dplyr::rename(!!format(df[[nrow(df), "Date"]], "%d %b %Y") := "Value")
+  return(summary)
+}
+
+getStockPlot <- function(df=getStockPrice(), type="scatter") {
+  if (type=="candlestick") {
+    p <- plot_ly(df, type="candlestick", x=~Date,
+            open=~Open, close=~Close,
+            high=~High, low=~Low) %>% plotly_config()
+  } else {
+    p <- plot_ly(df, type="scatter", mode="lines", x=~Date, y=~Close) %>% plotly_config()
+  }
+  return(p)
 }
 
 # Demo Plots
 
-plot_ly(getStockPrice(), type="scatter", mode="lines", x=~Date, y=~Close)
+# getStockPlot()
 
-plot_ly(getStockPrice(calculateReturns=FALSE, dateRange = c(Sys.Date()-30, Sys.Date())), type="candlestick", x=~Date,
-        open=~Open, close=~Close,
-        high=~High, low=~Low)
+# getStockPlot(type="candlestick")
+
