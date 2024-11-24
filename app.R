@@ -22,7 +22,7 @@ source("plotly_config.R")
 # Modules ----
 stock_picker <- selectizeInput(
   # choices are defined in server element for better performance
-  "stock_picker", label = NULL, choices = NULL 
+  "stock_picker", label = NULL, choices = NULL
 )
 
 stock_search <- textInput( 
@@ -30,6 +30,19 @@ stock_search <- textInput(
   label = NULL,
   placeholder = "Enter ticker (e.g. VTI)"
 )
+
+stock_picker_multiple <- selectizeInput(
+  # choices are defined in server element for better performance
+  "stock_picker_multiple", label = NULL, choices = NULL, multiple = TRUE
+)
+
+stock_search_multiple <- textInput( 
+  "stock_search_multiple",
+  label = NULL,
+  placeholder = "Enter ticker(s) (e.g. VTI, VOO)"
+)
+
+search_button_multiple <- actionButton("search_button_multiple", "Search")
 
 search_button <- actionButton("search_button", "Search")
 
@@ -54,7 +67,7 @@ ui <- page_navbar(
   sidebar = sidebar(width = 290,
                     bg = "white",
                     date_range_input,
-                    conditionalPanel("input.nav == 'Stocks'",
+                    conditionalPanel("input.nav == 'Overview'",
                                      accordion(id = "main_accordion",
                                                multiple = FALSE,
                                                accordion_panel(value = "standard",
@@ -70,12 +83,28 @@ ui <- page_navbar(
                                                )
                                      )
                     ),
+                    conditionalPanel("input.nav == 'Comparison'",
+                                     accordion(id = "main_accordion_multiple",
+                                               multiple = FALSE,
+                                               accordion_panel(value = "standard_multiple",
+                                                               "Choose ticker:",
+                                                               stock_picker_multiple,
+                                                               open = TRUE
+                                               ),
+                                               accordion_panel(value = "advanced_multiple",
+                                                               "Search ticker",
+                                                               stock_search_multiple,
+                                                               search_button_multiple,
+                                                               open = FALSE
+                                               )
+                                     )
+                    ),
                     conditionalPanel("input.nav == 'Crypto'",
                                      "Choose cryptocurrency:",
                                      coin_picker
                                      )
   ),
-  nav_panel(title = "Stocks",
+  nav_panel(title = "Overview",
       layout_columns(
         fill = FALSE,
         value_box(
@@ -101,11 +130,9 @@ ui <- page_navbar(
             class = "d-flex justify-content-between",
             checkboxInput("candlestick", "Candlestick", FALSE)
           ),
-          card_body(
-            class = "align-items-center",
-            plotlyOutput("main_plot", width = "55vw", height = "55vh") %>%
-              shinycssloaders::withSpinner()
-          )
+          # class = "align-items-center",
+          plotlyOutput("main_plot") %>%
+            shinycssloaders::withSpinner()
         ),
         card(fill = FALSE,
           card_header(
@@ -118,6 +145,32 @@ ui <- page_navbar(
           )
         )
       )
+  
+  ),
+  nav_panel(title = "Comparison",
+            card(height = 700,
+                 min_height = 700,
+                 card_header("Stock Comparison",
+                             class = "d-flex justify-content-between",
+                 ),
+                 plotlyOutput("stock_comparison_plot") %>%
+                   shinycssloaders::withSpinner()
+                 # card_body(
+                 #   class = "align-items-center",
+                 #   uiOutput("stock_comparison_plot") %>%
+                 #     shinycssloaders::withSpinner()
+                 # )
+            )
+            # card(fill = FALSE,
+            #      card_header(
+            #        class = "d-flex justify-content-between",
+            #      ),
+            #      card_body(
+            #        class = "align-items-center class, p-0",
+            #        tableOutput("stock_summary_table") %>%
+            #          shinycssloaders::withSpinner()
+            #      )
+            # )
   
   ),
   nav_panel(title = "Crypto",
@@ -142,15 +195,12 @@ ui <- page_navbar(
             layout_column_wrap(width = NULL,
                                style = css(grid_template_columns = "3fr 1fr"),
                                card(height = 700,
-                                    card_header("Stock History",
+                                    card_header("Coin History",
                                                 class = "d-flex justify-content-between",
                                                 checkboxInput("coin_candlestick", "Candlestick", FALSE)
                                     ),
-                                    card_body(
-                                      class = "align-items-center",
-                                      plotlyOutput("crypto_plot", width = "55vw", height = "55vh") %>%
-                                        shinycssloaders::withSpinner()
-                                    )
+                                    plotlyOutput("crypto_plot") %>%
+                                      shinycssloaders::withSpinner()
                                ),
                                card(fill = FALSE,
                                     card_header("Fear-Greed Index",
@@ -161,11 +211,8 @@ ui <- page_navbar(
                                                 ),
                                       class = "d-flex justify-content-between",
                                     ),
-                                    card_body(
-                                      class = "align-items-center class",
-                                      plotlyOutput("fgi_plot", width = "15vw", height = "15vw") %>%
-                                        shinycssloaders::withSpinner()
-                                    )
+                                    plotlyOutput("fgi_plot") %>%
+                                      shinycssloaders::withSpinner()
                                )
             )
             )
@@ -177,7 +224,8 @@ server <- function(input, output, session) {
   # Main chart ----
   
   updateSelectizeInput(session, 'stock_picker', choices = company_tickers[["Company + Ticker"]], server = TRUE)
-
+  updateSelectizeInput(session, 'stock_picker_multiple', choices = company_tickers[["Company + Ticker"]], server = TRUE)
+  
   # Collects stock data when valid ticker is selected, uses functions from scripts.R
   stock_data_filtered <- reactive({
     # Determines whether standard or advanced accordion is open and uses stock_picker or stock_search inputs accordingly
@@ -189,6 +237,20 @@ server <- function(input, output, session) {
     } else if (input$main_accordion == "advanced") {
       req(input$stock_search != "")
       getStockPrice(toupper(input$stock_search), dateRange = input$date)
+    }
+  })
+  
+  # Collects stock data when mutiple valid tickers are selected, uses functions from scripts.R
+  stock_data_filtered_multiple <- reactive({
+    # Determines whether standard or advanced accordion is open and uses stock_picker or stock_search inputs accordingly
+    if (input$main_accordion_multiple == "standard_multiple") {
+      req(input$stock_picker_multiple != "") # req() only renders plots once ticker selected
+      # filter finds the corresponding ticker for the stock name and 'pipes' this into stock price function
+      filter(company_tickers, `Company + Ticker` %in% !!input$stock_picker_multiple)[["Ticker"]] %>%
+        getStockPrice(dateRange = input$date) 
+    } else if (input$main_accordion_multiple == "advanced_multiple") {
+      req(input$stock_search_multiple != "")
+      getStockPrice(toupper(input$stock_search_multiple), dateRange = input$date)
     }
   })
   
@@ -212,15 +274,7 @@ server <- function(input, output, session) {
       "scatter"
     }
   })
-  
-  coin_plot_type <- reactive({
-    if (input$coin_candlestick == TRUE) {
-      "candlestick"
-    } else {
-      "scatter"
-    }
-  })
-  
+
   # Generates plot as soon as stock is selected
   stock_plot <- reactive({
     # only renders plot once an accordion is selected
@@ -231,27 +285,34 @@ server <- function(input, output, session) {
   stock_plot_w_button <- eventReactive(input$search_button, {
     getStockPlot(df=stock_data_filtered(), type=stock_plot_type())
   })
+
+  # Links with 'plotlyOutput' in UI file to render plot
+  output$main_plot <- renderPlotly({
+    req(input$main_accordion == "standard" | input$main_accordion == "advanced")
+    if (input$main_accordion == "advanced") {
+      stock_plot_w_button()
+    } else {
+      stock_plot()
+    }
+  })
+  
+  # Summary Table ----
   
   stock_summary <- reactive({
     getStockSummary(df=stock_data_current())
   })
   
-  stock_summary_w_button <- eventReactive(input$search_button, {
+  stock_summary_w_button <- eventReactive(input$search_button | input$main_accordion == "standard", {
     getStockSummary(df=stock_data_current())
   })
   
-  which_plot <- reactive({
-    if (input$main_accordion == "standard") {
-      stock_plot()
-    } else if (input$main_accordion == "advanced") {
-      stock_plot_w_button()
+  output$stock_summary_table <- renderTable({
+    req(input$main_accordion)
+    if (input$main_accordion == "advanced") {
+      stock_summary_w_button() }
+    else {
+      stock_summary() 
     }
-  })
-  
-  # Links with 'plotlyOutput' in UI file to render plot
-  output$main_plot <- renderPlotly({
-    req(input$main_accordion == "standard" | input$main_accordion == "advanced")
-    which_plot()
   })
   
   # Value boxes ----
@@ -259,13 +320,13 @@ server <- function(input, output, session) {
   # Gets most recent close data 
   tail_stock_data_filtered <- reactive({
     tail(stock_data_filtered(), 1)
-    })
+  })
   
   # Collates and formats recent close data
   value_boxes <- reactive({
     c(format(tail_stock_data_filtered()[["Close"]], big.mark = ","), # doesnt change, always latest
       paste0(round(tail_stock_data_filtered()[["Change"]], 1), "%"), # changes according to datepicker
-      paste0(round(tail_stock_data_filtered()[["Cumulative"]], 1), "%")
+      paste0(round(tail_stock_data_filtered()[["Growth"]], 1), "%")
     )
   })
   
@@ -275,7 +336,7 @@ server <- function(input, output, session) {
   })
   
   # Determines whether to use value boxes with/without button depending on which accordion is in use
-  which_box <- reactive({
+  value_boxes_array <- reactive({
     req(input$main_accordion == "standard" | input$main_accordion == "advanced")
     if (input$main_accordion == "standard") {
       value_boxes()
@@ -283,28 +344,39 @@ server <- function(input, output, session) {
       value_boxes_w_button()
     }
   })
-  
-  # Determines whether to use table with/without button depending on which accordion is in use
-  which_table <- reactive({
-    req(input$main_accordion == "standard" | input$main_accordion == "advanced")
-    if (input$main_accordion == "standard") {
-      stock_summary()
-    } else if (input$main_accordion == "advanced") {
-      stock_summary_w_button()
-    }
-  })
-  
-  output$stock_summary_table <- renderTable(which_table())
 
   # Link with value_box in UI to calculate and show latest close, volume and market cap
   output$price <- renderText({
-    which_box()[1]
+    value_boxes_array()[1]
     }) 
   output$day_change <- renderText({
-    which_box()[2]
+    value_boxes_array()[2]
   })
   output$total_change <- renderText({
-    which_box()[3]
+    value_boxes_array()[3]
+  })
+  
+  # Stock Comparison ----
+  
+  # Generates plot as soon as stock is selected
+  stock_plot_multiple <- reactive({
+    # only renders plot once an accordion is selected
+    getStockPlot(df=stock_data_filtered_multiple(), type="growth")
+  }) 
+  
+  # Generates plot only once search_button pressed (used in advanced accordion)
+  stock_plot_w_button_multiple <- eventReactive(input$search_button_multiple, {
+    getStockPlot(df=stock_data_filtered_multiple(), type="growth")
+  })
+  
+  # Links with 'plotlyOutput' in UI file to render plot
+  output$stock_comparison_plot <- renderPlotly({
+    req(input$main_accordion_multiple == "standard_multiple" | input$main_accordion_multiple == "advanced_multiple")
+    if (input$main_accordion_multiple == "advanced_multiple") {
+     stock_plot_w_button_multiple()
+    } else {
+      stock_plot_multiple()
+    }
   })
   
   # Crypto ----
@@ -322,7 +394,14 @@ server <- function(input, output, session) {
     filter(coin_df, `Coin` == !!input$coin_picker)[["Ticker"]] %>% 
       getCoinPrice(dateRange=c(Sys.time()-days(1), Sys.time()), interval="1m")
     })
-
+  
+  coin_plot_type <- reactive({
+    if (input$coin_candlestick == TRUE) {
+      "candlestick"
+    } else {
+      "scatter"
+    }
+  })
 
   output$crypto_plot <- renderPlotly({
     # plot_ly(coin_price(), type="scatter", mode="lines", x=~Date, y=~Close)
@@ -342,7 +421,7 @@ server <- function(input, output, session) {
   })
   
   output$coin_total_change <- renderText({
-    paste0(round(tail(coin_price(), 1)[["Cumulative"]], 1), "%")
+    paste0(round(tail(coin_price(), 1)[["Growth"]], 1), "%")
   })
 
 }

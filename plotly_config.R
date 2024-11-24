@@ -1,3 +1,21 @@
+colour_palette <- c("#50e991", "#e60049", "#e6d800", "#9b19f5", "#0275D8", "#ffa300","#dc0ab4", "#b3d4ff", "#00bfa0")
+
+t1 <- list(
+  family = "Open Sans",
+  color = "#1D1F21",
+  size = 16
+)
+t2 <- list(
+  family = "Open Sans",
+  color = "#1D1F21",
+  size = 14
+)
+t3 <- list(
+  family = "Open Sans",
+  color = "#1D1F21",
+  size = 12
+)
+
 modeBarButtonsToRemove <- c("zoom", "pan", "select", "zoomIn", "zoomOut", "autoScale", "resetScale",
                             "zoom2d", "pan2d", "select2d", "lasso2d", "zoomIn2d", "zoomOut2d", "autoScale2d", "resetScale2d",
                             "drawline", "drawopenpath", "drawclosedpath", "drawcircle", "drawrect", "eraseshape",
@@ -13,6 +31,9 @@ plotly_config <- function(p) {
                                        filename= 'custom_image',
                                        height= 900,
                                        width= 1400,
-                                       scale= 1)) #%>%
-    # layout()
+                                       scale= 1)) %>%
+    layout(font = t1,
+           xaxis = list(font = t2),
+           yaxis = list(font = t2)
+           )
 }

@@ -17,29 +17,43 @@ company_tickers <- fromJSON("company_tickers.json") %>% tibble() %>% unnest(cols
 
 getStockPrice <- function(ticker="AAPL", dateRange = c(Sys.Date()-years(2), Sys.Date()), 
                           calculateReturns = FALSE) {
-  # searches for stock price data 
-  tryCatch(
-    stock_price <- getSymbols(ticker, auto.assign = FALSE),
-    error = function(e) { stop(paste0("Ticker not found")) }
-  )
-  # tidies stock price data 
-  stock_price <- stock_price %>%
-    fortify.zoo() %>% # makes index its own column so it is recognised by tibble 
-    tibble() %>%
-    dplyr::rename("Date" := Index) %>% 
-    dplyr::filter(between(Date, as.Date(dateRange[1]), as.Date(dateRange[2])))
   
-  # removes ticker name from column names
-  colnames(stock_price) <- gsub(paste0(ticker,"."), "", colnames(stock_price))
+  # Converts ticker string to list if it contains commas
+  if (any(grepl(",", ticker))) {
+    ticker <- str_trim(strsplit(ticker, split = ",")[[1]])
+  }
   
-  # Calculates daily and cumulative returns
-  stock_price <- stock_price %>%
-    # change measures % change in stock price each day/week/month
-    dplyr::mutate(Change = (Close / lag(Close) - 1) * 100) %>%
-    # cumulative change measures % change in stock price since data begins
-    dplyr::mutate(Cumulative = (Close / first(Close) - 1) * 100)
+  stock_price_df <- tibble()
+  # loops through all given tickers and adds to dataframe
+  for (i in 1:length(ticker)) {
+    # searches for stock price data 
+    tryCatch(
+      stock_price <- getSymbols(as.character(ticker[[i]]), auto.assign = FALSE),
+      error = function(e) { stop(paste0("Ticker not found")) }
+    )
+    # tidies stock price data 
+    stock_price <- stock_price %>%
+      fortify.zoo() %>% # makes index its own column so it is recognised by tibble 
+      tibble() %>%
+      dplyr::rename("Date" := Index) %>% 
+      dplyr::filter(between(Date, as.Date(dateRange[1]), as.Date(dateRange[2])))
     
-  return(stock_price)
+    # removes ticker name from column names
+    colnames(stock_price) <- gsub(paste0(ticker[[i]],"."), "", colnames(stock_price))
+    
+    # Calculates daily and Growth returns
+    stock_price <- stock_price %>%
+      dplyr::mutate(Ticker = as.character(ticker[[i]])) %>%
+      # change measures % change in stock price each day/week/month
+      dplyr::mutate(Change = (Close / lag(Close) - 1) * 100) %>%
+      # Growth change measures % change in stock price since data begins
+      dplyr::mutate(Growth = (Close / first(Close) - 1) * 100)
+
+    stock_price_df <- bind_rows(stock_price_df, stock_price) %>%
+      dplyr::arrange(Date)
+  }
+    
+  return(stock_price_df)
 }
 
 getStockSummary <- function(df=getStockPrice()) {
@@ -64,12 +78,16 @@ getStockSummary <- function(df=getStockPrice()) {
 }
 
 getStockPlot <- function(df=getStockPrice(), type="scatter") {
-  if (type=="candlestick") {
+  if (type=="candlestick" & length(unique(df$Ticker)) == 1) {
     p <- plot_ly(df, type="candlestick", x=~Date,
             open=~Open, close=~Close,
             high=~High, low=~Low) %>% plotly_config()
+  } else if (type=="growth") {
+    p <- plot_ly(df, type="scatter", mode="lines", x=~Date, y=~Growth, color = ~Ticker,
+                 colors = colour_palette) %>% plotly_config()
   } else {
-    p <- plot_ly(df, type="scatter", mode="lines", x=~Date, y=~Close) %>% plotly_config()
+    p <- plot_ly(df, type="scatter", mode="lines", x=~Date, y=~Close, color = ~Ticker,
+                 colors = colour_palette) %>% plotly_config()
   }
   return(p)
 }

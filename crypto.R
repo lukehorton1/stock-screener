@@ -57,6 +57,7 @@ getCoinPrice <- function(ticker="PF_XBTUSD", dateRange = c(Sys.Date()-years(1), 
   coin_data <- coin_data %>%
     fortify.zoo() %>% # makes index its own column so it is recognised by tibble 
     tibble() %>%
+    dplyr::mutate(Ticker = ticker) %>%
     dplyr::rename("Date" := Index)
 
   colnames(coin_data) <- stringr::str_to_title(colnames(coin_data))
@@ -65,8 +66,8 @@ getCoinPrice <- function(ticker="PF_XBTUSD", dateRange = c(Sys.Date()-years(1), 
     coin_data <- coin_data %>%
       # change measures % change in crypto price each day/week/month
       dplyr::mutate(Change = (Close / lag(Close) - 1) * 100) %>%
-      # cumulative change measures % change in crypto price since data begins
-      dplyr::mutate(Cumulative = (Close / first(Close) - 1) * 100)
+      # Growth change measures % change in crypto price since data begins
+      dplyr::mutate(Growth = (Close / first(Close) - 1) * 100)
   } else {
     message("Cannot calculate returns for long-short ratio.")
   }
